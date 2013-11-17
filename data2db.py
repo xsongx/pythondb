@@ -212,6 +212,7 @@ def retweetInsert(filename,db):
     c=list(['@','retweet','link'])
     originaldict={}
     i=1
+    m=0
     rtstr=f.readline()
     rtAll=[]
     dupRt=[]
@@ -259,7 +260,8 @@ def retweetInsert(filename,db):
                         rtAll.append(rtid)
                 db.retweetInsert(rwlist)
                 i=i+rt
-                print 'retweet of '+str(ortwid)+' has finished!'
+                m=m+1
+                print str(m)+':retweet of '+str(ortwid)+' has finished: '+str(rt)
         except:
             t=False            
             pass
@@ -329,7 +331,7 @@ def oringinalTwInsert(filename,db):
         except:
             insertlist=orlist[it:]
             db.originalInsert(insertlist)
-    dup=open('/home/xsongx/workspace/python_proj/pythondb/duporigin.txt','w')
+    dup=open('/media/M_fM__VM_0M_eM__JM__M_eM__MM_7/tangjie/weibocontents/duporigin.txt','w')
     duplist=['\t'.join(r) for r in dupOr]
     dup='\n'.join(duplist)
     fdup.write(dup)
