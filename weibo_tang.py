@@ -15,8 +15,10 @@ class weibodb(Database):
     def __init__(self, database):
         self.db=Database(database,password = '20090924',type=MYSQL)
         self.userTable()
-#        self.statusTable()
         self.relationTable()
+        self.retweetTable()
+        self.originalTable()
+        self.wordTable()
     def userTable(self):
         if not "usertable" in self.db:
             self.db.create("usertable",fields=(
@@ -37,6 +39,15 @@ class weibodb(Database):
              field("verifiedType",STRING(20)),#	int	暂未支持
              field("biFollowersCount",INTEGER)#	int	用户的互粉数
             ))
+            
+    def wordTable(self):
+        if not "wordtable" in self.db:
+            self.db.create("wordtable",fields=(
+             pk(), # Auto-incremental id.
+             field("mapid",INTEGER,index=UNIQUE),
+             field("freq",INTEGER),
+             field("word",TEXT)
+             ))
     def relationTable(self):
         if not "relationtable" in self.db:
             self.db.create("relationtable",fields=(
@@ -77,6 +88,32 @@ class weibodb(Database):
              field("re_31",INTEGER,default=-1),#关系变化
              field("re_32",INTEGER,default=-1)#关系变化
             ))
+    def retweetTable(self):
+        if not "retwtable" in self.db:
+            self.db.create("retwtable",fields=(
+                pk(), # Auto-incremental id.
+                field("sid",STRING(20),index=UNIQUE),
+                field("origin_sid",STRING(20)),                
+                field("uid",STRING(20)),
+                field("createdAt",DATE),
+                field("status",TEXT),
+                field("mention",STRING(50)),
+                field("rwfrom",STRING(50)),
+                field("link",STRING(50))        
+                ))
+    def originalTable(self):
+        if not "originaltable" in self.db:
+            self.db.create("originaltable",fields=(
+                pk(), # Auto-incremental id.
+                field("sid",STRING(20),index=UNIQUE),
+                field("uid",STRING(20)),
+                field("createdAt",DATE),
+                field("status",TEXT),
+                field("mention",STRING(50)),
+                field("link",STRING(50)),
+                field("totalrw",INTEGER),
+                field("rwnum",INTEGER)
+                ))        
             
     def userInsert(self,userdict):
         try:
@@ -151,7 +188,58 @@ class weibodb(Database):
             print "batch insert error!!"
             exit(0)
         cursor.close()
-        conn.close() 
+        conn.close()
+        
+    def wordInsert(self,wlist):
+        conn = MySQLdb.connect(host='localhost',user='root',passwd='20090924',charset='utf8')
+        cursor = conn.cursor()
+        try:
+            DB_NAME = 'tangdb'
+            conn.select_db(DB_NAME)
+            cursor.executemany('INSERT INTO wordtable values(%s,%s,%s,%s)',wlist)
+            conn.commit()
+        except:
+            print "batch insert error!!"
+            exit(0)
+        cursor.close()
+        conn.close()
+    def retweetInsert(self,rtlist):
+        conn = MySQLdb.connect(host='localhost',user='root',passwd='20090924',charset='utf8')
+        cursor = conn.cursor()
+        
+        try:
+            DB_NAME = 'tangdb'
+            conn.select_db(DB_NAME)
+            cursor.executemany('INSERT INTO retwtable values(%s,%s,%s,%s,%s,%s,%s,%s,%s)',rtlist)
+            conn.commit()
+        except IntegrityError:
+            print "Duplicate entry for key retwtable_sid"
+            pass
+#        except:
+#            print "batch insert error!!"
+#            pass
+#==============================================================================
+#         DB_NAME = 'tangdb'
+#         conn.select_db(DB_NAME)
+#         cursor.executemany('INSERT INTO retwtable values(%s,%s,%s,%s,%s,%s,%s,%s,%s)',rtlist)
+#         conn.commit()        
+#==============================================================================
+        cursor.close()
+        conn.close()
+    def originalInsert(self,orlist):
+        conn = MySQLdb.connect(host='localhost',user='root',passwd='20090924',charset='utf8')
+        cursor = conn.cursor()
+        
+        try:
+            DB_NAME = 'tangdb'
+            conn.select_db(DB_NAME)
+            cursor.executemany('INSERT INTO originaltable values(%s,%s,%s,%s,%s,%s,%s,%s,%s)',orlist)
+            conn.commit()
+        except IntegrityError:
+            print "Duplicate entry for key originaltable_sid"
+            pass
+        cursor.close()
+        conn.close()
     def relationInsert(self,reldict):
         try:
             q=self.db.relationtable.search(fields=['id'],filters=all(filter("user_v1",reldict[0]),filter("user_v2",reldict[1])))
