@@ -203,18 +203,10 @@ class weibodb(Database):
             exit(0)
         cursor.close()
         conn.close()
-    def retweetInsert(self,rtlist):
-        conn = MySQLdb.connect(host='localhost',user='root',passwd='20090924',charset='utf8')
-        cursor = conn.cursor()
+#    def retweetInsert(self,rtlist):
+#        conn = MySQLdb.connect(host='localhost',user='root',passwd='20090924',charset='utf8')
+#        cursor = conn.cursor()        
         
-        try:
-            DB_NAME = 'tangdb'
-            conn.select_db(DB_NAME)
-            cursor.executemany('INSERT INTO retwtable values(%s,%s,%s,%s,%s,%s,%s,%s,%s)',rtlist)
-            conn.commit()
-        except IntegrityError:
-            print "Duplicate entry for key retwtable_sid"
-            pass
 #        except:
 #            print "batch insert error!!"
 #            pass
@@ -224,22 +216,12 @@ class weibodb(Database):
 #         cursor.executemany('INSERT INTO retwtable values(%s,%s,%s,%s,%s,%s,%s,%s,%s)',rtlist)
 #         conn.commit()        
 #==============================================================================
-        cursor.close()
-        conn.close()
-    def originalInsert(self,orlist):
-        conn = MySQLdb.connect(host='localhost',user='root',passwd='20090924',charset='utf8')
-        cursor = conn.cursor()
-        
-        try:
-            DB_NAME = 'tangdb'
-            conn.select_db(DB_NAME)
-            cursor.executemany('INSERT INTO originaltable values(%s,%s,%s,%s,%s,%s,%s,%s,%s)',orlist)
-            conn.commit()
-        except IntegrityError:
-            print "Duplicate entry for key originaltable_sid"
-            pass
-        cursor.close()
-        conn.close()
+#
+#    def originalInsert(self,orlist):
+#        conn = MySQLdb.connect(host='localhost',user='root',passwd='20090924',charset='utf8')
+#        cursor = conn.cursor()
+#        
+       
     def relationInsert(self,reldict):
         try:
             q=self.db.relationtable.search(fields=['id'],filters=all(filter("user_v1",reldict[0]),filter("user_v2",reldict[1])))

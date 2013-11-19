@@ -8,10 +8,12 @@ Created on Mon Oct 21 17:16:01 2013
 
 from weibo_tang import weibodb
 import codecs
-from pattern.db import date,DateError
+from pattern.db import date
 from BeautifulSoup import *
 import pickle
 import chardet
+import MySQLdb
+from MySQLdb import IntegrityError
 
 def zh2unicode(stri): 
     fwr=open('/media/M_fM__VM_0M_eM__JM__M_eM__MM_7/tangjie/weibocontents/wordtable_error.txt','a')
@@ -207,38 +209,44 @@ def wordTableInsert(filename,db):
     wtfile.close()
 def retweetInsert(filename,db):  
     f=open(filename,'rb')
-    forigin=open('/media/M_fM__VM_0M_eM__JM__M_eM__MM_7/tangjie/weibocontents/orgin.pickle','w')
+    forigin=open('/media/M_fM__VM_0M_eM__JM__M_eM__MM_7/tangjie/weibocontents/orgin.txt','w')
+    fdup=open('/media/M_fM__VM_0M_eM__JM__M_eM__MM_7/tangjie/weibocontents/dupretweet.txt','w')
     t=True
     c=list(['@','retweet','link'])
-    originaldict={}
+#    originaldict={}
+    conn = MySQLdb.connect(host='localhost',user='root',passwd='20090924',charset='utf8')
+    cursor = conn.cursor()
+    DB_NAME = 'tangdb'
+    conn.select_db(DB_NAME)
     i=1
     m=0
     rtstr=f.readline()
     rtAll=[]
-    dupRt=[]
+#    dupRt=[]
     while t:
         try:            
             instr=zh2unicode(rtstr.strip())
             if instr!=None:
 #                print instr
                 ortw=instr.split()                
-                ortwid=int(ortw[0])
-                ortwuid=int(ortw[1])
+                ortwid=ortw[0]
+                ortwuid=ortw[1]
                 timelist=ortw[2].strip().split('-')
                 timestr='-'.join(timelist[:-1])+' '+timelist[-1]
                 orcreAt=date(timestr)
-                orRt=int(ortw[-1])
-                rt=int(f.readline().strip())
-                originaldict[ortwid]=list([ortwuid,orcreAt,orRt,rt])                
+                orRt=ortw[-1]
+                rt=f.readline().strip()
+                original=list([ortwid,ortwuid,str(orcreAt),orRt,rt])
+                forigin.write('\t'.join(original)+'\n')                
                 rwlist=[]
                 rtstr=zh2unicode(f.readline().strip())
-                for j in range(rt):                    
+                for j in range(int(rt)):                    
                     rtlist=rtstr.split()
-                    rtuid=int(rtlist[0])
+                    rtuid=rtlist[0]
                     timelist=rtlist[1].strip().split('-')
                     timestr='-'.join(timelist[:-1])+' '+timelist[-1]
                     rtcreAt=date(timestr)
-                    rtid=int(rtlist[-1])
+                    rtid=rtlist[-1]
                     rtTw=zh2unicode(f.readline().strip())
                     rtstr=zh2unicode(f.readline().strip())
                     mention=''
@@ -252,38 +260,53 @@ def retweetInsert(filename,db):
                         if rtstr.split()[0]=='link':
                             link=' '.join(rtstr.split()[1:])
                         rtstr=zh2unicode(f.readline().strip())
-                    rtrecord=(i+j,rtid,ortwid,rtuid,rtcreAt,rtTw,mention,rtfrom,link)
                     if rtid in rtAll:
-                        dupRt.append(rtrecord)
+                        rtrecord=(rtid,ortwid,rtuid,str(rtcreAt),rtTw,mention,rtfrom,link)
+                        fdup.write('\t'.join(rtrecord)+'\n')
                     else:
+                        i=i+1
+                        rtrecord=(i,rtid,ortwid,rtuid,str(rtcreAt),rtTw,mention,rtfrom,link)
                         rwlist.append(rtrecord) 
                         rtAll.append(rtid)
-                db.retweetInsert(rwlist)
-                i=i+rt
+                try:
+                    cursor.executemany('INSERT INTO retwtable values(%s,%s,%s,%s,%s,%s,%s,%s,%s)',rwlist)
+                    conn.commit()
+                except IntegrityError:
+                    print "Duplicate entry for key retwtable_sid"
+                    pass
                 m=m+1
                 print str(m)+':retweet of '+str(ortwid)+' has finished: '+str(rt)
         except:
             t=False            
             pass
-    pickle.dump(originaldict,forigin)
-    fdup=open('/media/M_fM__VM_0M_eM__JM__M_eM__MM_7/tangjie/weibocontents/dupretweet.txt','w')
-    duplist=['\t'.join(r) for r in dupRt]
-    dup='\n'.join(duplist)
-    fdup.write(dup)
+#    pickle.dump(originaldict,forigin)
+#    duplist=['\t'.join(r) for r in dupRt]
+#    dup='\n'.join(duplist)
+#    fdup.write(dup)
+    cursor.close()
+    conn.close()
     fdup.close()
-    print len(originaldict.keys())
+#    print len(originaldict.keys())
     forigin.close()
     print 'retweet over!'
 def oringinalTwInsert(filename,db):
     f=open(filename,'rb')
-    forigin=open('/media/M_fM__VM_0M_eM__JM__M_eM__MM_7/tangjie/weibocontents/orgin.pickle','r')
-    originaldict=pickle.load(forigin)
+    forigin=open('/media/M_fM__VM_0M_eM__JM__M_eM__MM_7/tangjie/weibocontents/orgin.txt','r')
+    conn = MySQLdb.connect(host='localhost',user='root',passwd='20090924',charset='utf8')
+    cursor = conn.cursor()
+    DB_NAME = 'tangdb'
+    conn.select_db(DB_NAME)
+    originalist=[line.strip().split() for line in forigin.readlines()]
+    originaldict={}    
+    for l in originalist:
+        try:
+            originaldict[l[0]]=l[1:]
+        except:
+            print 'Duplicate Key'
     t=True
     c=list(['@','link'])
     i=1
     orstr=f.readline()
-    orAll=[]
-    dupOr=[]
     orlist=[]
     while t:
         try:            
@@ -291,14 +314,14 @@ def oringinalTwInsert(filename,db):
             if instr!=None:
 #                print instr
                 ortw=instr.split()                
-                ortwid=int(ortw[0])
+                ortwid=ortw[0]
                 try:
                     origlist=originaldict[ortwid]
                 except:
                     print 'key error: '+str(ortwid)
                     exit(0)
                 ortwuid=origlist[0]
-                orcreAt=origlist[1]
+                orcreAt=date(origlist[1])
                 orRt=origlist[2]
                 rt=origlist[3]
                 ortweet=zh2unicode(f.readline().strip())                
@@ -312,30 +335,35 @@ def oringinalTwInsert(filename,db):
                         link=' '.join(rtstr.split()[1:])
                     orstr=zh2unicode(f.readline().strip())
                 orRecord=(i,ortwid,ortwuid,orcreAt,ortweet,mention,link,orRt,rt)
-                if rtid in orAll:
-                    dupOr.append(orRecord)
-                else:
-                    orlist.append(orRecord) 
-                    orAll.append(rtid)              
+                orlist.append(orRecord)               
                 i=i+1
-                print 'tweet: '+str(ortwid)+' has finished!'
+                print 'tweet: '+ortwid+' has finished!'
         except:
             t=False            
             pass
+    it=0
     while (it<len(orlist)):
         try:
             insertlist=orlist[it:it+10000]
             it=it+10000
-            db.originalInsert(insertlist)
+            try:
+                cursor.executemany('INSERT INTO originaltable values(%s,%s,%s,%s,%s,%s,%s,%s,%s)',insertlist)
+                conn.commit()
+            except IntegrityError:
+                print "Duplicate entry for key originaltable_sid"
+                pass
+
             print it
         except:
             insertlist=orlist[it:]
-            db.originalInsert(insertlist)
-    dup=open('/media/M_fM__VM_0M_eM__JM__M_eM__MM_7/tangjie/weibocontents/duporigin.txt','w')
-    duplist=['\t'.join(r) for r in dupOr]
-    dup='\n'.join(duplist)
-    fdup.write(dup)
-    fdup.close()
+            try:
+                cursor.executemany('INSERT INTO originaltable values(%s,%s,%s,%s,%s,%s,%s,%s,%s)',insertlist)
+                conn.commit()
+            except IntegrityError:
+                print "Duplicate entry for key originaltable_sid"
+                pass
+    cursor.close()
+    conn.close()
 mydb=weibodb("tangdb")
 #user_map=usermap("/media/M_fM__VM_0M_eM__JM__M_eM__MM_7/tangjie/uidlist.txt",mydb)
 #user2db("/media/M_fM__VM_0M_eM__JM__M_eM__MM_7/tangjie/user_profile1-1.txt",mydb)
